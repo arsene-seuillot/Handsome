@@ -72,6 +72,8 @@ def update_armature(bone1_angle, bone2_angle, bone3_angle):
         bpy.ops.object.mode_set(mode='EDIT')
         
         # Ajuster la rotation des os (en radians)
+        
+        # Il faut modifier les noms pour être cohérent 
         armature.data.edit_bones['Bone.001'].roll = math.radians(bone1_angle)  # Exemple d'os
         armature.data.edit_bones['Bone.002'].roll = math.radians(bone2_angle)  # Exemple d'os
         armature.data.edit_bones['Bone.003'].roll = math.radians(bone3_angle)  # Exemple d'os
