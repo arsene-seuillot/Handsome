@@ -2,6 +2,8 @@ import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import json
+import numpy as np
 from math import sqrt
 
 # Initialisation de MediaPipe Hands
@@ -12,7 +14,7 @@ hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.5, min_tracki
 mp_drawing = mp.solutions.drawing_utils
 
 # Ouvrir la webcam
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0)  # Assure-toi que cette ligne est présente pour ouvrir la webcam
 
 # Initialisation de Matplotlib pour le tracé en 3D
 fig = plt.figure()
@@ -53,7 +55,79 @@ def update_plot(points, connections):
     plt.draw()
     plt.pause(0.001)  # Pause pour permettre à Matplotlib de rafraîchir
 
-while cap.isOpened():
+# Fonction pour calculer l'angle entre deux vecteurs dans un espace 3D
+def calculate_angle(v1, v2):
+    # Normaliser les vecteurs
+    v1 = v1 / np.linalg.norm(v1)
+    v2 = v2 / np.linalg.norm(v2)
+    
+    # Calcul du produit scalaire
+    dot_product = np.dot(v1, v2)
+    
+    # Calcul de l'angle en radians
+    angle_rad = np.arccos(np.clip(dot_product, -1.0, 1.0))  # Clip pour éviter les erreurs numériques
+    
+    # Convertir en degrés
+    angle_deg = np.degrees(angle_rad)
+    
+    return angle_deg
+
+# Fonction pour calculer l'angle entre deux vecteurs dans un espace 3D
+def calculate_angle(v1, v2):
+    # Normaliser les vecteurs
+    v1 = v1 / np.linalg.norm(v1)
+    v2 = v2 / np.linalg.norm(v2)
+    
+    # Calcul du produit scalaire
+    dot_product = np.dot(v1, v2)
+    
+    # Calcul de l'angle en radians
+    angle_rad = np.arccos(np.clip(dot_product, -1.0, 1.0))  # Clip pour éviter les erreurs numériques
+    
+    # Convertir en degrés
+    angle_deg = np.degrees(angle_rad)
+    
+    return angle_deg
+
+# Fonction pour calculer les angles de chaque phalange
+def calculate_finger_angles(landmarks):
+    angles = {}
+
+    # Indices des landmarks pour chaque doigt
+    finger_landmarks = {
+        'pouce': [1, 2, 3, 4],          # Pouce (4 points)
+        'index': [5, 6, 7, 8],          # Index (4 points)
+        'majeur': [9, 10, 11, 12],      # Majeur (4 points)
+        'annulaire': [13, 14, 15, 16],  # Annulaire (4 points)
+        'auriculaire': [17, 18, 19, 20] # Auriculaire (4 points)
+    }
+
+    # Calcul des angles pour chaque doigt
+    for finger_name, indices in finger_landmarks.items():
+        angles[finger_name] = {}
+        for i in range(1, len(indices) - 1):  # Calculer 3 angles pour chaque doigt
+            start_idx = indices[i - 1]
+            middle_idx = indices[i]
+            end_idx = indices[i + 1]
+            
+            # Vecteurs des segments entre les points (dans l'espace 3D)
+            v1 = np.array([landmarks[middle_idx].x - landmarks[start_idx].x,
+                           landmarks[middle_idx].y - landmarks[start_idx].y,
+                           landmarks[middle_idx].z - landmarks[start_idx].z])
+
+            v2 = np.array([landmarks[end_idx].x - landmarks[middle_idx].x,
+                           landmarks[end_idx].y - landmarks[middle_idx].y,
+                           landmarks[end_idx].z - landmarks[middle_idx].z])
+
+            # Calcul de l'angle de rotation
+            angle = calculate_angle(v1, v2)
+            angles[finger_name][f'{finger_name}_angle_{i}'] = angle
+
+    return angles
+
+
+# Boucle principale pour traiter les images de la webcam
+while cap.isOpened():  # Ici, cap doit être défini
     ret, frame = cap.read()
     
     if not ret:
@@ -90,13 +164,18 @@ while cap.isOpened():
                     'Relative_Z': relative_z/normalisation
                 })
             
-            
-
             # Récupérer les connexions des points de MediaPipe (connecteurs entre les articulations)
             connections = mp_hands.HAND_CONNECTIONS
             
             # Mettre à jour le tracé en 3D avec les points et leurs connexions
             update_plot(keypoints_relative, connections)
+
+            # Calcul des angles pour les phalanges
+            finger_angles = calculate_finger_angles(hand_landmarks.landmark)
+
+            # Convertir les angles en JSON pour les visualiser
+            angles_json = json.dumps(finger_angles, indent=4)
+            print(angles_json)  # Affichage des angles dans le terminal
 
             # Dessiner les points de repère et les connexions sur l'image
             mp_drawing.draw_landmarks(
