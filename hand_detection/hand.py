@@ -1,11 +1,10 @@
-# Détéction de la main, mais sans l'interface Blender
-
 import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from math import sqrt
+from collections import deque
 
 # Initialisation de MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -25,6 +24,43 @@ ax = fig.add_subplot(111, projection='3d')
 ax.set_xlim([-0.5, 0.5])
 ax.set_ylim([-0.5, 0.5])
 ax.set_zlim([-0.5, 0.5])
+
+# Définition de la classe pour gérer la moyenne glissante sur les coordonnées
+class SlidingAverage:
+    def __init__(self, window_size=5):
+        # Une file d'attente pour chaque landmark, chaque coordonnée aura un historique de valeurs
+        self.window_size = window_size
+        self.landmarks_buffer = {i: {'x': deque(maxlen=window_size),
+                                     'y': deque(maxlen=window_size),
+                                     'z': deque(maxlen=window_size)}
+                                 for i in range(21)}  # 21 landmarks pour une main
+
+    # Ajoute les nouvelles coordonnées et renvoie les coordonnées lissées
+    def update(self, landmarks):
+        smoothed_landmarks = []
+
+        for i, landmark in enumerate(landmarks):
+            # Ajouter les nouvelles valeurs au buffer
+            self.landmarks_buffer[i]['x'].append(landmark.x)
+            self.landmarks_buffer[i]['y'].append(landmark.y)
+            self.landmarks_buffer[i]['z'].append(landmark.z)
+
+            # Calculer la moyenne glissante pour chaque coordonnée
+            smoothed_x = sum(self.landmarks_buffer[i]['x']) / len(self.landmarks_buffer[i]['x'])
+            smoothed_y = sum(self.landmarks_buffer[i]['y']) / len(self.landmarks_buffer[i]['y'])
+            smoothed_z = sum(self.landmarks_buffer[i]['z']) / len(self.landmarks_buffer[i]['z'])
+
+            # Stocker les coordonnées lissées
+            smoothed_landmarks.append({
+                'x': smoothed_x,
+                'y': smoothed_y,
+                'z': smoothed_z
+            })
+
+        return smoothed_landmarks
+
+# On prend une fenêtre de taille 3 : meilleur compromis entre rapidité et précision.
+sliding_average = SlidingAverage(window_size=3)
 
 # Fonction pour mettre à jour les points et les connexions 3D dans Matplotlib
 def update_plot(points, connections):
@@ -91,54 +127,54 @@ def calculate_finger_angles(landmarks):
         # Si le doigt est le pouce, calcul de deux angles
         if finger_name == 'pouce':
             # Premier angle : entre 1-2 et 2-3
-            v1 = np.array([landmarks[2].x - landmarks[1].x,
-                           landmarks[2].y - landmarks[1].y,
-                           landmarks[2].z - landmarks[1].z])
-            v2 = np.array([landmarks[3].x - landmarks[2].x,
-                           landmarks[3].y - landmarks[2].y,
-                           landmarks[3].z - landmarks[2].z])
+            v1 = np.array([landmarks[2]['x'] - landmarks[1]['x'],
+                           landmarks[2]['y'] - landmarks[1]['y'],
+                           landmarks[2]['z'] - landmarks[1]['z']])
+            v2 = np.array([landmarks[3]['x'] - landmarks[2]['x'],
+                           landmarks[3]['y'] - landmarks[2]['y'],
+                           landmarks[3]['z'] - landmarks[2]['z']])
             angle1 = calculate_angle(v1, v2)
             angles[finger_name]['pouce_angle_1'] = angle1
             
             # Second angle : entre 2-3 et 3-4
-            v1 = np.array([landmarks[3].x - landmarks[2].x,
-                           landmarks[3].y - landmarks[2].y,
-                           landmarks[3].z - landmarks[2].z])
-            v2 = np.array([landmarks[4].x - landmarks[3].x,
-                           landmarks[4].y - landmarks[3].y,
-                           landmarks[4].z - landmarks[3].z])
+            v1 = np.array([landmarks[3]['x'] - landmarks[2]['x'],
+                           landmarks[3]['y'] - landmarks[2]['y'],
+                           landmarks[3]['z'] - landmarks[2]['z']])
+            v2 = np.array([landmarks[4]['x'] - landmarks[3]['x'],
+                           landmarks[4]['y'] - landmarks[3]['y'],
+                           landmarks[4]['z'] - landmarks[3]['z']])
             angle2 = calculate_angle(v1, v2)
             angles[finger_name]['pouce_angle_2'] = angle2
             
         # Pour les autres doigts (3 angles)
         else:
             # Premier angle : entre 0-X et X-(X+1)
-            v1 = np.array([landmarks[indices[0] - 4].x - landmarks[0].x,
-                           landmarks[indices[0] - 4].y - landmarks[0].y,
-                           landmarks[indices[0] - 4].z - landmarks[0].z])
-            v2 = np.array([landmarks[indices[1]].x - landmarks[indices[0]].x,
-                           landmarks[indices[1]].y - landmarks[indices[0]].y,
-                           landmarks[indices[1]].z - landmarks[indices[0]].z])
+            v1 = np.array([landmarks[indices[0] - 4]['x'] - landmarks[0]['x'],
+                           landmarks[indices[0] - 4]['y'] - landmarks[0]['y'],
+                           landmarks[indices[0] - 4]['z'] - landmarks[0]['z']])
+            v2 = np.array([landmarks[indices[1]]['x'] - landmarks[indices[0]]['x'],
+                           landmarks[indices[1]]['y'] - landmarks[indices[0]]['y'],
+                           landmarks[indices[1]]['z'] - landmarks[indices[0]]['z']])
             angle1 = calculate_angle(v1, v2)
             angles[finger_name][f'{finger_name}_angle_1'] = angle1
 
             # Deuxième angle : entre X-(X+1) et (X+1)-(X+2)
-            v1 = np.array([landmarks[indices[1]].x - landmarks[indices[0]].x,
-                           landmarks[indices[1]].y - landmarks[indices[0]].y,
-                           landmarks[indices[1]].z - landmarks[indices[0]].z])
-            v2 = np.array([landmarks[indices[2]].x - landmarks[indices[1]].x,
-                           landmarks[indices[2]].y - landmarks[indices[1]].y,
-                           landmarks[indices[2]].z - landmarks[indices[1]].z])
+            v1 = np.array([landmarks[indices[1]]['x'] - landmarks[indices[0]]['x'],
+                           landmarks[indices[1]]['y'] - landmarks[indices[0]]['y'],
+                           landmarks[indices[1]]['z'] - landmarks[indices[0]]['z']])
+            v2 = np.array([landmarks[indices[2]]['x'] - landmarks[indices[1]]['x'],
+                           landmarks[indices[2]]['y'] - landmarks[indices[1]]['y'],
+                           landmarks[indices[2]]['z'] - landmarks[indices[1]]['z']])
             angle2 = calculate_angle(v1, v2)
             angles[finger_name][f'{finger_name}_angle_2'] = angle2
 
             # Troisième angle : entre (X+1)-(X+2) et (X+2)-(X+3)
-            v1 = np.array([landmarks[indices[2]].x - landmarks[indices[1]].x,
-                           landmarks[indices[2]].y - landmarks[indices[1]].y,
-                           landmarks[indices[2]].z - landmarks[indices[1]].z])
-            v2 = np.array([landmarks[indices[3]].x - landmarks[indices[2]].x,
-                           landmarks[indices[3]].y - landmarks[indices[2]].y,
-                           landmarks[indices[3]].z - landmarks[indices[2]].z])
+            v1 = np.array([landmarks[indices[2]]['x'] - landmarks[indices[1]]['x'],
+                           landmarks[indices[2]]['y'] - landmarks[indices[1]]['y'],
+                           landmarks[indices[2]]['z'] - landmarks[indices[1]]['z']])
+            v2 = np.array([landmarks[indices[3]]['x'] - landmarks[indices[2]]['x'],
+                           landmarks[indices[3]]['y'] - landmarks[indices[2]]['y'],
+                           landmarks[indices[3]]['z'] - landmarks[indices[2]]['z']])
             angle3 = calculate_angle(v1, v2)
             angles[finger_name][f'{finger_name}_angle_3'] = angle3
 
@@ -166,11 +202,14 @@ try:
                 if normalisation < 1e-6:
                     normalisation = 1.0  # Pour éviter les divisions par 0
 
+                # Appliquer la moyenne glissante sur les coordonnées des landmarks
+                smoothed_landmarks = sliding_average.update(hand_landmarks.landmark)
+
                 keypoints_relative = []
-                for i, data_point in enumerate(hand_landmarks.landmark):
-                    relative_x = data_point.x - wrist.x
-                    relative_y = data_point.y - wrist.y
-                    relative_z = data_point.z - wrist.z
+                for i, data_point in enumerate(smoothed_landmarks):
+                    relative_x = data_point['x'] - smoothed_landmarks[0]['x']
+                    relative_y = data_point['y'] - smoothed_landmarks[0]['y']
+                    relative_z = data_point['z'] - smoothed_landmarks[0]['z']
 
                     keypoints_relative.append({
                         'Index': i,
@@ -182,8 +221,9 @@ try:
                 connections = mp_hands.HAND_CONNECTIONS
                 update_plot(keypoints_relative, connections)
 
-                # Calculer les angles des doigts
-                finger_angles = calculate_finger_angles(hand_landmarks.landmark)
+                # Calculer les angles des doigts avec les landmarks lissés
+                finger_angles = calculate_finger_angles(smoothed_landmarks)
+                
                 print(finger_angles)
 
                 mp_drawing.draw_landmarks(
