@@ -1,5 +1,4 @@
-# Programme avec l'envoie des données sur un socket
-
+# ------- IMPORT DES LIBRAIRES NECESSAIRES ------- # 
 import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
@@ -7,6 +6,17 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from math import sqrt
 from collections import deque
+import sys
+# ------------------------------------------------ # 
+
+
+
+# Pour passer un doigt en paramètre du programme (pour la lisibilité lors des tests)
+if len(sys.argv) < 2:
+    print("Il faut chosir un doigt en paramètre du programme. Doigt par défaut : index")
+    param = "index"
+else:
+    param = sys.argv[1]
 
 # Initialisation de MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -27,7 +37,7 @@ ax.set_xlim([-0.5, 0.5])
 ax.set_ylim([-0.5, 0.5])
 ax.set_zlim([-0.5, 0.5])
 
-# Définition de la classe pour gérer la moyenne glissante sur les coordonnées
+# === Définir une classe pour gérer la moyenne glissante sur les coordonnées === #
 class SlidingAverage:
     def __init__(self, window_size=5):
         # Une file d'attente pour chaque landmark, chaque coordonnée aura un historique de valeurs
@@ -95,7 +105,7 @@ def update_plot(points, connections):
     plt.pause(0.001)
 
 # Fonction pour calculer l'angle entre deux vecteurs dans un espace 3D
-def calculate_angle(v1, v2):
+def calculate_angle_before(v1, v2):
     norm_v1 = np.linalg.norm(v1)
     norm_v2 = np.linalg.norm(v2)
 
@@ -109,7 +119,13 @@ def calculate_angle(v1, v2):
     angle_rad = np.arccos(np.clip(dot_product, -1.0, 1.0))  # Calcul de l'angle en radians
     return np.degrees(angle_rad)
 
-# Fonction pour calculer les angles entre les phalanges
+
+def calculate_angle(v1, v2):
+    """Calculer l'angle entre deux vecteurs."""
+    cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    angle = np.arccos(np.clip(cos_theta, -1.0, 1.0))  # Clipper pour éviter des erreurs d'arccos
+    return np.degrees(angle)  # Convertir en degrés
+
 def calculate_finger_angles(landmarks):
     angles = {}
     
@@ -135,32 +151,31 @@ def calculate_finger_angles(landmarks):
             v2 = np.array([landmarks[3]['x'] - landmarks[2]['x'],
                            landmarks[3]['y'] - landmarks[2]['y'],
                            landmarks[3]['z'] - landmarks[2]['z']])
-            angle1 = calculate_angle(v1, v2)
-            angles[finger_name]['pouce_angle_1'] = angle1
+            angles[finger_name]['pouce_angle_1'] = calculate_angle(v1, v2)
             
-            # Second angle : entre 2-3 et 3-4
+            # Deuxième angle : entre 2-3 et 3-4
             v1 = np.array([landmarks[3]['x'] - landmarks[2]['x'],
                            landmarks[3]['y'] - landmarks[2]['y'],
                            landmarks[3]['z'] - landmarks[2]['z']])
             v2 = np.array([landmarks[4]['x'] - landmarks[3]['x'],
                            landmarks[4]['y'] - landmarks[3]['y'],
                            landmarks[4]['z'] - landmarks[3]['z']])
-            angle2 = calculate_angle(v1, v2)
-            angles[finger_name]['pouce_angle_2'] = angle2
+            angles[finger_name]['pouce_angle_2'] = calculate_angle(v1, v2)
             
         # Pour les autres doigts (3 angles)
         else:
-            # Premier angle : entre 0-X et X-(X+1)
-            v1 = np.array([landmarks[indices[0] - 4]['x'] - landmarks[0]['x'],
-                           landmarks[indices[0] - 4]['y'] - landmarks[0]['y'],
-                           landmarks[indices[0] - 4]['z'] - landmarks[0]['z']])
+            # Premier angle : entre (base de la main) et (1ère phalange)
+            base_index = 0  # Base de la main
+            v1 = np.array([landmarks[indices[0]]['x'] - landmarks[base_index]['x'],
+                           landmarks[indices[0]]['y'] - landmarks[base_index]['y'],
+                           landmarks[indices[0]]['z'] - landmarks[base_index]['z']])
             v2 = np.array([landmarks[indices[1]]['x'] - landmarks[indices[0]]['x'],
                            landmarks[indices[1]]['y'] - landmarks[indices[0]]['y'],
                            landmarks[indices[1]]['z'] - landmarks[indices[0]]['z']])
             angle1 = calculate_angle(v1, v2)
             angles[finger_name][f'{finger_name}_angle_1'] = angle1
 
-            # Deuxième angle : entre X-(X+1) et (X+1)-(X+2)
+            # Deuxième angle : entre (1ère phalange) et (2ème phalange)
             v1 = np.array([landmarks[indices[1]]['x'] - landmarks[indices[0]]['x'],
                            landmarks[indices[1]]['y'] - landmarks[indices[0]]['y'],
                            landmarks[indices[1]]['z'] - landmarks[indices[0]]['z']])
@@ -170,7 +185,7 @@ def calculate_finger_angles(landmarks):
             angle2 = calculate_angle(v1, v2)
             angles[finger_name][f'{finger_name}_angle_2'] = angle2
 
-            # Troisième angle : entre (X+1)-(X+2) et (X+2)-(X+3)
+            # Troisième angle : entre (2ème phalange) et (3ème phalange)
             v1 = np.array([landmarks[indices[2]]['x'] - landmarks[indices[1]]['x'],
                            landmarks[indices[2]]['y'] - landmarks[indices[1]]['y'],
                            landmarks[indices[2]]['z'] - landmarks[indices[1]]['z']])
@@ -225,8 +240,10 @@ try:
 
                 # Calculer les angles des doigts avec les landmarks lissés
                 finger_angles = calculate_finger_angles(smoothed_landmarks)
+                dic_angles = finger_angles[param]
+                for clé,valeur in dic_angles.items():
+                    print(clé,valeur)
                 
-                print(finger_angles)
 
                 mp_drawing.draw_landmarks(
                     frame, 
