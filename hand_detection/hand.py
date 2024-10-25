@@ -1,3 +1,5 @@
+# Programme avec l'envoie des données sur un socket
+
 import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
