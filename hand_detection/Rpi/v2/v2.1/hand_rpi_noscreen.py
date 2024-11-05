@@ -140,10 +140,12 @@ while True:
         for hand_landmarks in results.multi_hand_landmarks:
             smoothed_landmarks = sliding_average.update(hand_landmarks.landmark)
             finger_angles = calculate_finger_angles(smoothed_landmarks)
-            dic_angles = finger_angles[param]
-
-            for key, value in dic_angles.items():
-                print(f"{key}: {value}")
+            print(finger_angles)
+            dic_angles = finger_angles[param] # pour l'exemple, dico des angles d'un seul doigt         
+            ###### ENVOYER LES DONNÉES ######
+		
+            #for key, value in dic_angles.items():
+                #print(f"{key}: {value}")
 
 # Arrêter la caméra lorsque le programme est terminé
 picam2.stop()
