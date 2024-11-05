@@ -6,7 +6,7 @@ from picamera2 import Picamera2
 import tkinter as tk
 from PIL import Image, ImageTk
 import sys
-from collections import deque
+from collections import deque  # Import de deque pour la moyenne glissante
 
 if len(sys.argv) < 2:
     print("Il faut choisir un doigt en paramètre. L'index a été choisi par défaut")
@@ -183,8 +183,10 @@ def update_frame():
 
             # Calcul des angles des doigts avec coordonnées lissées
             smoothed_landmarks = sliding_average.update(hand_landmarks.landmark)
-            finger_angles = calculate_finger_angles(smoothed_landmarks)
-            dic_angles = finger_angles[param]
+            finger_angles = calculate_finger_angles(smoothed_landmarks) # dico à envoyer, qui contient les angles lissés de tous les doigts
+            dic_angles = finger_angles[param] # pour l'exemple, dico des angles d'un seul doigt
+            
+            ###### ENVOYER LES DONNÉES ######
 
             for clé, valeur in dic_angles.items():
                 print(clé, valeur)
