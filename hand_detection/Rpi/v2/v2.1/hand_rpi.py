@@ -6,9 +6,7 @@ from picamera2 import Picamera2
 import tkinter as tk
 from PIL import Image, ImageTk
 import sys
-import socket
-import pickle
-from collections import deque  
+from collections import deque
 
 if len(sys.argv) < 2:
     print("Il faut choisir un doigt en paramètre. L'index a été choisi par défaut")
