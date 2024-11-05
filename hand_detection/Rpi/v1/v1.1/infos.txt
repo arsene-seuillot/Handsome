@@ -1,0 +1,2 @@
+[FONCTIONNEL]
+Programme avec l'envoi des données sur un socket réseau. Il faut lancer le programme serveur, puis le programme de calcul.

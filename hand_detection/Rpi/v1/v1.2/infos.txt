@@ -1,0 +1,2 @@
+[PAS FONCTIONNEL]
+Programme avec l'envoi des données sur un socket réseau. Il faut lancer le programme serveur, puis le programme de calcul. Ici on essaye de tout lancer à partir d'un seul script python serveur, qui crée un subprocess pour lancer le script de calcul qui va envoyer les données au serveur.
