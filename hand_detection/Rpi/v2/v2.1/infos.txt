@@ -1,1 +1,2 @@
 Programme avec envoi des données via un fichier temporaire. Le tout est géré par un unique programme en C.
+Ajout de la moyenne glissante pour lisser les données, pour éviter les sauts dûs aux erreurs.
