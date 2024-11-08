@@ -1,2 +1,2 @@
 [VERSION FINALE FONCTIONNELLE]
-Les doigts bougent. 
+Compiler le programme code.c et l'exécuter.
